@@ -2,101 +2,101 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
-# Define the URL of the sales search page
-search_url = 'https://salesweb.civilview.com/Sales/SalesSearch?countyId=2'
+# Define the base URL
+base_url = 'https://salesweb.civilview.com/'
 
-# Send an HTTP GET request to the sales search page
-search_response = requests.get(search_url)
+# Define the URL of the sales search page
+search_url = f'{base_url}Sales/SalesSearch?countyId=2'
+
+# Send an HTTP GET request to the search page
+response = requests.get(search_url)
 
 # Check if the request was successful
-if search_response.status_code == 200:
+if response.status_code == 200:
     # Parse the HTML content of the search page using BeautifulSoup
-    search_soup = BeautifulSoup(search_response.text, 'html.parser')
+    search_soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Find the <a> tag with the text "Details" (assuming this is how you access the detail page)
-    details_link = search_soup.find('a', string='Details')
+    # Find all the <a> tags with the text "Details" to extract the detail URLs
+    details_links = search_soup.find_all('a', string='Details')
 
+    if details_links:
+        # Initialize an empty list to store the scraped data
+        scraped_data = []
 
-    if details_link:
-        # Extract the href attribute from the <a> tag
-        detail_url = details_link.get('href')
+        for details_link in details_links:
+            # Extract the href attribute from the <a> tag to get the detail URL
+            detail_url = f'{base_url}{details_link.get("href")}'
 
-        # Construct the full URL for the sales listing detail page
-        full_detail_url = f'https://salesweb.civilview.com{detail_url}'
+            # Send an HTTP GET request to the sales detail page
+            response = requests.get(detail_url)
 
-        # Send an HTTP GET request to the sales listing detail page
-        response = requests.get(full_detail_url)
+            print('Detail URL:', detail_url)
 
-        # Check if the request was successful
-        if response.status_code == 200:
-            # Parse the HTML content of the detail page using BeautifulSoup
-            soup = BeautifulSoup(response.text, 'html.parser')
+            # Check if the request was successful
+            if response.status_code == 200:
+                # Parse the HTML content of the detail page using BeautifulSoup
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Extract the Sheriff Number if it exists, or set it to a default value if not found
-            sheriff_element = soup.find('span', {'id': 'SheriffNo'})
-            sheriff_number = sheriff_element.text.strip() if sheriff_element else 'N/A'
+                # Helper function to extract text from an element or return 'N/A' if not found
+                def extract_text(element):
+                    return element.get_text(strip=True) if element else 'N/A'
 
-            # Extract the Court Case Number if it exists, or set it to a default value if not found
-            court_case_element = soup.find('span', {'id': 'CourtCaseNo'})
-            court_case_number = court_case_element.text.strip() if court_case_element else 'N/A'
+                # Find all the rows in the table
+                rows = soup.find_all('tr')
 
-            # Extract the Sales Date if it exists, or set it to a default value if not found
-            sales_date_element = soup.find('span', {'id': 'SalesDate'})
-            sales_date = sales_date_element.text.strip() if sales_date_element else 'N/A'
+                print ('rows:', rows)
+                print ('len(rows):', len(rows))
+                print ('rows[0]:', rows[0])
 
-            # Extract the Plaintiff if it exists, or set it to a default value if not found
-            plaintiff_element = soup.find('span', {'id': 'Plaintiff'})
-            plaintiff = plaintiff_element.text.strip() if plaintiff_element else 'N/A'
+                # Initialize variables to store the scraped data for each detail page
+                sheriff_number = court_case_number = sales_date = plaintiff = defendant = address = description = approximate_upset = attorney = attorney_phone = 'N/A'
 
-            # Extract the Defendant if it exists, or set it to a default value if not found
-            defendant_element = soup.find('span', {'id': 'Defendant'})
-            defendant = defendant_element.text.strip() if defendant_element else 'N/A'
+                # Iterate through the rows and extract data based on the labels
+                for row in rows:
+                    label = row.find('td')
+                    if label:
+                        label_text = label.get_text(strip=True)
+                        data_cell = label.find_next_sibling('td')
 
-            # Extract the Address if it exists, or set it to a default value if not found
-            address_element = soup.find('span', {'id': 'Address'})
-            address = address_element.text.strip() if address_element else 'N/A'
+                        if data_cell:
+                            data_text = data_cell.get_text(strip=True)
+                        else:
+                            data_text = 'N/A'
 
-            # Extract the Description if it exists, or set it to a default value if not found
-            description_element = soup.find('span', {'id': 'Description'})
-            description = description_element.text.strip() if description_element else 'N/A'
+                        # Print the label and data for debugging
+                        print(f'Label: {label_text}')
+                        print(f'Data: {data_text}')
 
-            # Extract the Approximate Upset if it exists, or set it to a default value if not found
-            approx_upset_element = soup.find('span', {'id': 'ApproxUpset'})
-            approximate_upset = approx_upset_element.text.strip() if approx_upset_element else 'N/A'
+                # Create a dictionary to store the extracted data for the current detail page
+                data = {
+                    'Sheriff #': sheriff_number,
+                    'Court Case #': court_case_number,
+                    'Sales Date': sales_date,
+                    'Plaintiff': plaintiff,
+                    'Defendant': defendant,
+                    'Address': address,
+                    'Description': description,
+                    'Approx. Upset': approximate_upset,
+                    'Attorney': attorney,
+                    'Attorney Phone': attorney_phone
+                }
 
-            # Extract the Attorney if it exists, or set it to a default value if not found
-            attorney_element = soup.find('span', {'id': 'Attorney'})
-            attorney = attorney_element.text.strip() if attorney_element else 'N/A'
+                print ('Data:', data)
+                print ('row:', row)
 
-            # Extract the Attorney Phone if it exists, or set it to a default value if not found
-            attorney_phone_element = soup.find('span', {'id': 'AttorneyPhone'})
-            attorney_phone = attorney_phone_element.text.strip() if attorney_phone_element else 'N/A'
+                # Append the data to the scraped_data list
+                scraped_data.append(data)
+            else:
+                print(f'Failed to retrieve the detail page for URL: {detail_url}. Status code:', response.status_code)
 
+        # Create a DataFrame from the scraped_data list
+        df = pd.DataFrame(scraped_data)
 
-            # Create a dictionary to store the extracted data
-            data = {
-                'Sheriff #': [sheriff_number],
-                'Court Case #': [court_case_number],
-                'Sales Date': [sales_date],
-                'Plaintiff': [plaintiff],
-                'Defendant': [defendant],
-                'Address': [address],
-                'Description': [description],
-                'Approx. Upset': [approximate_upset],
-                'Attorney': [attorney],
-                'Attorney Phone': [attorney_phone]
-            }
+        # Save the DataFrame to a CSV file
+        df.to_csv('sales_listing.csv', index=False)
 
-            # Create a DataFrame from the data
-            df = pd.DataFrame(data)
-
-            # Save the DataFrame to a CSV file
-            df.to_csv('sales_listing.csv', index=False)
-
-            print('Data has been successfully scraped and saved to sales_listing.csv.')
-        else:
-            print('Failed to retrieve the detail page. Status code:', response.status_code)
+        print('Data has been successfully scraped and saved to sales_listing.csv.')
     else:
-        print('Details link not found on the search page.')
+        print('Details links not found on the search page.')
 else:
-    print('Failed to retrieve the search page. Status code:', search_response.status_code)
+    print(f'Failed to retrieve the search page. Status code:', response.status_code)
