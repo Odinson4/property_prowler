@@ -50,6 +50,9 @@ if response.status_code == 200:
                 # Find all the rows in the table
                 rows = detail_soup.find_all('tr')
 
+                # Specify the labels to extract from the rows
+                labels_of_interest = ['Approx. Upset*:', 'Address:', 'Description:']
+
                 # Iterate through the rows and extract data based on the labels
                 for row in rows:
                     # Extract the text from the first column (label)
@@ -61,15 +64,16 @@ if response.status_code == 200:
                     # Extract the text from the second <td> element
                     value = extract_text(value_element)
 
-                    print(f'{label}: {value}')
-
-                    # Add the data to the dictionary
-                    data[label] = value
+                    if label in labels_of_interest:
+                        # Add the data to the dictionary
+                        data[label] = value
 
                 # Append the data dictionary to the scraped_data list
                 scraped_data.append(data)
 
-                print('Data extracted:', data)
+                # Print the labels of interest and their corresponding data
+                for label in labels_of_interest:
+                    print(f'{label}: {data.get(label, "N/A")}')
 
             else:
                 print(f'Failed to retrieve the detail page for URL: {detail_url}. Status code:', response.status_code)
