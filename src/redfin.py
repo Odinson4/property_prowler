@@ -1,56 +1,40 @@
 import pandas as pd
 import requests
-import time  # Import the time module
+from bs4 import BeautifulSoup
 
-def fetch_redfin_data(address):
-    url = "https://redfin5.p.rapidapi.com/properties/get-info"
+# Read the CSV file containing addresses
+csv_file = 'sales_listing.csv'  # Replace with the path to your CSV file
+df = pd.read_csv(csv_file)
 
-    headers = {
-        "X-RapidAPI-Key": "YOUR_RAPIDAPI_KEY",
-        "X-RapidAPI-Host": "redfin5.p.rapidapi.com"
-    }
-
-    querystring = {
-        "url": address
-    }
-
-    response = requests.get(url, headers=headers, params=querystring)
-
+# Function to get property value from Trulia
+def get_property_value(address):
+    trulia_url = f"https://www.trulia.com/{address.replace(' ', '-')}"
+    print(f"Processing address: {address}")
+    response = requests.get(trulia_url)
+    
     if response.status_code == 200:
-        data = response.json()
-        return data
+        print(f"Successfully fetched data for address: {address}")
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # Be more precise in selecting the element
+        property_value_div = soup.find('div', {'class': 'Text__TextBase-sc-27a633b1-0-div Text__TextContainerBase-sc-27a633b1-1 jrMHya gtvmjT'})
+        print(property_value_div)
+        
+        if property_value_div:
+            property_value = property_value_div.text.strip()
+            print(f"Property value found for address: {address} - Value: {property_value}")
+            return property_value
+        else:
+            print(f"Property value not found for address: {address}")
     else:
-        print(f"Failed to retrieve data for address: {address}. Status code: {response.status_code}")
-        return None
+        print(f"Failed to fetch data for address: {address}")
 
-if __name__ == '__main__':
-    # Load the CSV file with addresses
-    df = pd.read_csv('sales_listing.csv')
+    return 'Not found'
 
-    # Initialize a list to store Redfin data
-    redfin_data = []
+# Create a new column for property values in the DataFrame
+df['Property_Value'] = df['Address:'].apply(get_property_value)
 
-    for index, row in df.iterrows():
-        address = row['Address:']  # Extract the address from the DataFrame
+# Save the updated DataFrame to a new CSV file
+output_csv_file = 'property_values.csv'
+df.to_csv(output_csv_file, index=False)
 
-        print(f'Fetching Redfin data for address: {address}')
-
-        # Call the fetch_redfin_data function with the address as an argument
-        data = fetch_redfin_data(address)
-
-        if data:
-            redfin_data.append(data)
-
-        # Introduce a delay of a few seconds (you can adjust the duration as needed)
-        time.sleep(5)  # Wait for 5 seconds between requests
-
-    # Create a DataFrame from the Redfin data
-    redfin_df = pd.DataFrame(redfin_data)
-
-    # Merge the Redfin data with the original DataFrame based on the 'Address' column
-    merged_df = df.merge(redfin_df, on='Address:', how='left')
-
-    # Save the updated DataFrame to a new CSV file
-    merged_df.to_csv('sales_listing_with_redfin.csv', index=False)
-
-    print("Redfin data retrieval complete.")
+print(f"Property values saved to {output_csv_file}")
